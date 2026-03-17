@@ -1,0 +1,388 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CHANGED: Moved raw <style> from index.html into global Vite CSS */
+body {
+  font-family: "Inter", sans-serif;
+  min-height: 100dvh;
+}
+/* ── Calendar Modal ── */
+/* Removed: old vanilla-JS opacity/pointer-events toggle rules.
+   Visibility is now handled by React's conditional render in OutreachCalendar.jsx */
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: default;
+  transition: background 0.15s, transform 0.1s;
+  position: relative;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  border: 1.5px solid transparent;
+}
+.cal-day.has-data {
+  cursor: pointer;
+  color: #1e293b;
+}
+.cal-day.has-data:hover {
+  background: #f8f4ff;
+  border-color: rgba(152, 85, 246, 0.25);
+  transform: scale(1.04);
+}
+.cal-day.is-today {
+  border-color: #9855f6 !important;
+  color: #9855f6 !important;
+  font-weight: 800;
+}
+.cal-day.is-today .cal-day-num {
+  color: #9855f6;
+}
+.cal-day.other-month {
+  opacity: 0.3;
+  cursor: default;
+}
+.cal-day.selected {
+  background: rgba(152, 85, 246, 0.1);
+  border-color: #9855f6;
+}
+.cal-dot-row {
+  display: flex;
+  gap: 2px;
+}
+.cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cal-total-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #9855f6;
+  line-height: 1;
+}
+.cal-day-num {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+/* detail panel */
+#cal-detail {
+  background: #f8f4ff;
+  border-radius: 14px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+.material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: middle;
+  user-select: none;
+}
+.fill-1 {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid rgba(152, 85, 246, 0.15);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+.dropdown-menu.open {
+  display: block;
+}
+.dropdown-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dropdown-item:hover {
+  background: rgba(152, 85, 246, 0.06);
+  color: #9855f6;
+}
+.dropdown-item.active {
+  background: rgba(152, 85, 246, 0.1);
+  color: #9855f6;
+  font-weight: 600;
+}
+.dropdown-item .count {
+  font-size: 11px;
+  opacity: 0.6;
+}
+.bar-fill {
+  transition: width 0.6s ease;
+}
+.action-seg {
+  display: flex;
+  border: 1px solid rgba(152, 85, 246, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.action-btn {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Inter", sans-serif;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #94a3b8;
+  transition: all 0.15s;
+}
+.action-btn:not(:last-child) {
+  border-right: 1px solid rgba(152, 85, 246, 0.1);
+}
+.action-btn.sel-job {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+.action-btn.sel-build {
+  background: rgba(152, 85, 246, 0.1);
+  color: #9855f6;
+}
+.action-btn.sel-build-plus {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+.action-btn.sel-skip {
+  background: rgba(241, 245, 249, 1);
+  color: #64748b;
+}
+.action-btn.sel-dismissed {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+.tbl-btn.sel-dismissed {
+  background: rgba(239, 68, 68, 0.06);
+  color: #ef4444;
+}
+.sidebar {
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+.sidebar.collapsed {
+  width: 56px !important;
+}
+.sidebar.collapsed .sidebar-label,
+.sidebar.collapsed .sidebar-section-title,
+.sidebar.collapsed .sidebar-bottom,
+.sidebar.collapsed .sidebar-logo-text {
+  display: none;
+}
+.sidebar.collapsed nav a {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar.collapsed nav a span.sidebar-label {
+  display: none;
+}
+.sidebar {
+  min-width: 56px;
+}
+.sidebar.collapsed nav a span.material-symbols-outlined {
+  margin: 0;
+}
+.sidebar-toggle {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tbl-seg {
+  display: flex;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.tbl-btn {
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "Inter", sans-serif;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #94a3b8;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.tbl-btn:not(:last-child) {
+  border-right: 1px solid #e2e8f0;
+}
+.tbl-btn:hover {
+  background: #f8fafc;
+}
+.tbl-btn.sel-job {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+}
+.tbl-btn.sel-build {
+  background: rgba(152, 85, 246, 0.08);
+  color: #9855f6;
+}
+.tbl-btn.sel-build-plus {
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+}
+.tbl-btn.sel-skip {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.email-copy {
+  cursor: pointer;
+  border-bottom: 1px dashed rgba(152, 85, 246, 0.4);
+  transition: all 0.15s;
+}
+.email-copy:hover {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+}
+.page-active {
+  background: #9855f6 !important;
+  color: white !important;
+  border-color: #9855f6 !important;
+}
+.nav-active {
+  background: rgba(152, 85, 246, 0.1);
+  color: #9855f6;
+  font-weight: 600;
+}
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background 0.3s;
+  flex-shrink: 0;
+}
+.sync-dot.syncing {
+  background: #f59e0b;
+  animation: pulse 1s infinite;
+}
+.sync-dot.synced {
+  background: #10b981;
+}
+.sync-dot.error {
+  background: #ef4444;
+}
+@keyframes pulse {
+  0%,
+  100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.drop-zone {
+  border: 2px dashed rgba(152, 85, 246, 0.3);
+  border-radius: 12px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: #9855f6;
+  background: rgba(152, 85, 246, 0.04);
+}
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(247, 245, 248, 0.95);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+#loading-overlay.hidden {
+  display: none;
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(152, 85, 246, 0.2);
+  border-top-color: #9855f6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+#toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  opacity: 0;
+  background: #1e293b;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 9998;
+  transition: all 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+@media (max-width: 1023px) {
+  .desktop-only { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .mobile-only { display: none !important; }
+}
+.lh-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.daily-count-ring {
+  animation: countRingIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes countRingIn {
+  from { transform: scale(0.7); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Ensure this is in your global CSS file */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
