@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react'; // RECENTLY CHANGED: Added useState
+import TimingModal from './TimingModal'; // RECENTLY CHANGED: Added TimingModal import
 
 export default function LeadTableMobile({
   paginatedLeads, isAdmin, copyMode, handleStatusClick, 
@@ -6,11 +7,12 @@ export default function LeadTableMobile({
   handlePhoneCopy, 
   updateLead, onLocate
 }) {
+  // RECENTLY CHANGED: Added state for the timing modal
+  const [timingModalLead, setTimingModalLead] = useState(null);
 
   const openGoogleMaps = (e, lead) => {
     e.stopPropagation();
     if (lead.lat && lead.lng) {
-      // NOTE: Using a standard google maps URL format here for reliable opening
       window.open(`https://www.google.com/maps/search/?api=1&query=${lead.lat},${lead.lng}`, '_blank');
     } else if (lead.address) {
       window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.name + ' ' + lead.address)}`, '_blank');
@@ -18,7 +20,7 @@ export default function LeadTableMobile({
   };
 
   return (
-    <div className="md:hidden flex-1 overflow-y-auto px-4 py-2 space-y-4">
+    <div className="md:hidden flex-1 overflow-y-auto px-4 py-2 space-y-4 relative">
       {paginatedLeads.length === 0 ? (
         <div className="text-center py-12 text-slate-400">
           <span className="material-symbols-outlined block text-4xl mb-2">search_off</span>
@@ -35,10 +37,8 @@ export default function LeadTableMobile({
                 <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                   <div className="flex justify-between items-start gap-3">
                     <h3 className={`font-bold text-sm leading-tight pt-1 ${canMap ? 'text-slate-900 cursor-pointer active:text-primary' : 'text-slate-900'}`}>
-                      {/* Clicking the name still opens the inbuilt map */}
                       <span onClick={() => { if(canMap) onLocate(l); }}>{l.name}</span>
                     </h3>
-                    {/* RECENTLY CHANGED: Removed the old circular map button from here */}
                   </div>
                   
                   {urlObj ? (
@@ -49,7 +49,6 @@ export default function LeadTableMobile({
                     <span className="text-slate-400 text-xs">No website</span>
                   )}
                   
-                  {/* RECENTLY CHANGED: Added "Open Maps" button inline with Phone and Email, styled as neat chips */}
                   <div className="flex flex-wrap items-center gap-2 mt-1.5">
                     {l.phone && (
                       <span 
@@ -59,14 +58,16 @@ export default function LeadTableMobile({
                         <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '13px' }}>phone</span>{l.phone}
                       </span>
                     )}
-                    {l.email && (
-                      <span 
-                        className="text-[11px] text-primary cursor-pointer bg-primary/5 px-2 py-1 rounded border border-primary/10 active:bg-primary/20 transition-colors truncate max-w-[120px]" 
-                        onClick={() => handleEmailCopy(l.email)}
-                      >
-                        {l.email}
-                      </span>
-                    )}
+                    
+                    {/* RECENTLY CHANGED: Added "Hours" button next to Maps */}
+                    <button 
+                      className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded hover:bg-amber-100 active:bg-amber-200 transition-colors" 
+                      onClick={(e) => { e.stopPropagation(); setTimingModalLead(l); }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>schedule</span>
+                      Hours
+                    </button>
+
                     {canMap && (
                       <button 
                         className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-100 px-2 py-1 rounded hover:bg-blue-100 active:bg-blue-200 transition-colors" 
@@ -112,6 +113,12 @@ export default function LeadTableMobile({
           </div>
         );
       })}
+
+      {/* RECENTLY CHANGED: Render the TimingModal component */}
+      <TimingModal 
+        lead={timingModalLead} 
+        onClose={() => setTimingModalLead(null)} 
+      />
     </div>
   );
 }
