@@ -22,13 +22,8 @@ export default function DailyOutreachCard({ dailyTotal, dailyPct, counts, onOpen
           <svg width="84" height="84" viewBox="0 0 84 84">
             <circle cx="42" cy="42" r="36" fill="none" stroke="#f1f5f9" strokeWidth="8" />
             <circle 
-              cx="42" 
-              cy="42" 
-              r="36" 
-              fill="none" 
-              stroke="#9855f6" 
-              strokeWidth="8" 
-              strokeLinecap="round" 
+              cx="42" cy="42" r="36" 
+              fill="none" stroke="#9855f6" strokeWidth="8" strokeLinecap="round" 
               strokeDasharray="226" 
               strokeDashoffset={226 * (1 - dailyPct / 100)} 
               style={{ transform: 'rotate(-90deg)', transformOrigin: '42px 42px', transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }} 
@@ -44,23 +39,29 @@ export default function DailyOutreachCard({ dailyTotal, dailyPct, counts, onOpen
         <div className="flex-1 space-y-2.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-2 font-bold text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#10b981]" /> Job
+              <span className="w-2 h-2 rounded-full bg-[#9855f6]" /> Message
             </span>
-            <span className="font-black text-slate-800">{counts.job || 0}</span>
+            <span className="font-black text-slate-800">{counts.message || 0}</span>
           </div>
           <div className="flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-2 font-bold text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#9855f6]" /> Build
+              <span className="w-2 h-2 rounded-full bg-[#10b981]" /> Call
             </span>
-            <span className="font-black text-slate-800">{counts.build_no_demo || 0}</span>
+            <span className="font-black text-slate-800">{counts.call || 0}</span>
           </div>
           <div className="flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-2 font-bold text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#3b82f6]" /> Build+
+              <span className="w-2 h-2 rounded-full bg-[#94a3b8]" /> Skip
             </span>
-            <span className="font-black text-slate-800">{counts.build_demo || 0}</span>
+            <span className="font-black text-slate-800">{counts.skip || 0}</span>
           </div>
-          
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="flex items-center gap-2 font-bold text-slate-500">
+              <span className="w-2 h-2 rounded-full bg-[#ef4444]" /> Dismissed
+            </span>
+            <span className="font-black text-slate-800">{counts.dismissed || 0}</span>
+          </div>
+
           <div className="mt-3 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
             <div 
               className="h-full bg-primary rounded-full transition-all duration-1000" 
