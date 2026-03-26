@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import LeadDashboard from './components/LeadDashboard';
 import OutreachCalendar from './components/lead-dashboard/OutreachCalendar';
 import FALLBACK_LEADS from './data/fallback-leads';
@@ -15,7 +15,7 @@ export default function App() {
   const [outreachLog, setOutreachLog] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState('synced');
-  const [dataMode, setDataMode] = useState('local'); 
+  const [dataMode, setDataMode] = useState('local');
   const [dataSource, setDataSource] = useState("Local File");
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminKey, setAdminKey] = useState("");
@@ -43,18 +43,17 @@ export default function App() {
       if (key === 'c') { e.preventDefault(); setSearchQuery(''); }
       if (key === 's') { e.preventDefault(); setRangeFilters({ ratingMin: 3.5, ratingMax: 4.5, reviewsMin: 50, reviewsMax: 500 }); setPage(1); setActiveView('leads'); }
       if (key === 'r') { e.preventDefault(); setRangeFilters({ ratingMin: 0, ratingMax: 5, reviewsMin: 0, reviewsMax: 5000 }); setSearchQuery(''); setPage(1); }
-      
       if (key === 'p') {
-  e.preventDefault();
-  const targetPage = prompt("Jump to Page:");
-  if (targetPage) {
-    const parsed = parseInt(targetPage, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      setPage(parsed);
-      setActiveView('leads'); // Force switch to Directory view so they see the page change
-    }
-  }
-}
+        e.preventDefault();
+        const targetPage = prompt("Jump to Page:");
+        if (targetPage) {
+          const parsed = parseInt(targetPage, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            setPage(parsed);
+            setActiveView('leads');
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -62,9 +61,9 @@ export default function App() {
 
   // Admin Auth Logic
   const handleToggleAdmin = async () => {
-    if (isAdmin) { 
-      setIsAdmin(false); setAdminKey(""); 
-      sessionStorage.removeItem('admin_session_key'); return; 
+    if (isAdmin) {
+      setIsAdmin(false); setAdminKey("");
+      sessionStorage.removeItem('admin_session_key'); return;
     }
     const input = prompt("Enter Admin Security Key:");
     if (!input) return;
@@ -77,7 +76,7 @@ export default function App() {
     } catch (err) { alert("Connection error."); }
   };
 
-  // RECENTLY CHANGED: Persist admin session on refresh
+  // Persist admin session on refresh
   useEffect(() => {
     const savedKey = sessionStorage.getItem('admin_session_key');
     if (savedKey) {
@@ -86,57 +85,69 @@ export default function App() {
     }
   }, []);
 
-  // Sync Logic - CRITICAL FIX: Ensure it always uses the freshest data
-  const syncToCloud = async (updatedLeads, updatedDaily, updatedOutreach, currentKey) => {
+  // syncToCloud — always uses the freshest data passed in
+  const syncToCloud = useCallback(async (updatedLeads, updatedDaily, updatedOutreach, currentKey) => {
+    const keyToUse = currentKey || adminKey;
+    if (!keyToUse) return; // Don't attempt sync without an admin key
     try {
       setSyncStatus('syncing');
       const statuses = {};
-      // Use provided updatedLeads OR fallback to current state
       const leadsToSync = updatedLeads || leads;
-      leadsToSync.forEach(l => { if(l && l.id) statuses[l.id] = { status: l.status, replied: l.replied }; });
+      leadsToSync.forEach(l => {
+        if (l && l.id) statuses[l.id] = { status: l.status, replied: l.replied };
+      });
 
-      await fetch('/api/statuses', {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/statuses', {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          auth: currentKey || adminKey, 
-          statuses, 
+          auth: keyToUse,
+          statuses,
           daily: updatedDaily || dailyData,
           outreach: updatedOutreach || outreachLog,
         }),
       });
-      setSyncStatus('synced');
-    } catch (e) { setSyncStatus('error'); }
-  };
+
+      if (res.ok) {
+        setSyncStatus('synced');
+      } else {
+        console.error("Sync failed with status:", res.status);
+        setSyncStatus('error');
+      }
+    } catch (e) {
+      console.error("Sync error:", e);
+      setSyncStatus('error');
+    }
+  }, [adminKey, leads, dailyData, outreachLog]);
+
+  // FIX: Wrap setLeads so every status change automatically syncs to KV
+  const setLeadsAndSync = useCallback((updatedLeads) => {
+    setLeads(updatedLeads);
+    syncToCloud(updatedLeads, dailyData, outreachLog, adminKey);
+  }, [syncToCloud, dailyData, outreachLog, adminKey]);
 
   const handleDeleteEntry = async (timestamp) => {
-    // 1. Identify what we are deleting before it's gone
     const entryToDelete = outreachLog.find(e => e.ts === timestamp);
     if (!entryToDelete) return;
 
-    // 2. Create the updated log
     const updatedLog = outreachLog.filter(entry => entry.ts !== timestamp);
     setOutreachLog(updatedLog);
-    
-    // 3. Check if the entry happened TODAY
+
     const entryDate = getLocalDateString(new Date(timestamp));
     const todayStr = getLocalDateString();
 
     let updatedDaily = dailyData;
 
     if (entryDate === todayStr) {
-      // RECENTLY CHANGED: Logic to decrement the daily card counter
       const newCounts = { ...dailyData.counts };
-      const type = entryToDelete.tplKey; // 'job', 'build_no_demo', or 'build_demo'
-
+      const type = entryToDelete.tplKey;
       if (newCounts[type] > 0) {
         newCounts[type] -= 1;
       }
-
       updatedDaily = { ...dailyData, counts: newCounts };
       setDailyData(updatedDaily);
     }
 
-    // 4. Sync the updated log AND the updated daily counts to the cloud
     syncToCloud(leads, updatedDaily, updatedLog, adminKey);
   };
 
@@ -159,17 +170,32 @@ export default function App() {
           if (sData.outreach) fetchedOutreach = sData.outreach;
           if (sData.daily) setDailyData(sData.daily);
         }
-      } catch (err) { console.error(err); }
-      
+      } catch (err) {
+        console.error("Init error:", err);
+      }
+
       const baseLeads = (dataMode === 'cloud' && Array.isArray(fetchedCloudLeads) && fetchedCloudLeads.length > 0)
         ? fetchedCloudLeads : FALLBACK_LEADS;
-      
-      const mergedLeads = baseLeads.map(l => ({
-        ...l, id: String(l.id),
-        status: (typeof fetchedStatuses[l.id] === 'object' ? fetchedStatuses[l.id].status : fetchedStatuses[l.id]) || "none",
-        replied: (typeof fetchedStatuses[l.id] === 'object' ? !!fetchedStatuses[l.id].replied : false),
-      }));
-      setLeads(mergedLeads); setOutreachLog(fetchedOutreach); setIsLoading(false);
+
+      // DEBUG: Uncomment these two lines if statuses still don't load after deploy
+       console.log("KV statuses keys (first 3):", Object.keys(fetchedStatuses).slice(0, 3));
+       console.log("Fallback lead IDs (first 3):", baseLeads.slice(0, 3).map(l => String(l.id)));
+
+      // FIX: Normalise ID to string on both sides so KV keys always match
+      const mergedLeads = baseLeads.map(l => {
+        const id = String(l.id);
+        const saved = fetchedStatuses[id] || fetchedStatuses[l.id];
+        return {
+          ...l,
+          id,
+          status: (typeof saved === 'object' ? saved.status : saved) || "none",
+          replied: (typeof saved === 'object' ? !!saved.replied : false),
+        };
+      });
+
+      setLeads(mergedLeads);
+      setOutreachLog(fetchedOutreach);
+      setIsLoading(false);
       setDataSource(dataMode === 'cloud' ? "Vercel Cloud" : "Local File");
     };
     initializeApp();
@@ -177,20 +203,29 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
-      <LeadDashboard 
+      <LeadDashboard
         {...{
-          leads, setLeads, outreachLog, setOutreachLog, dailyData, setDailyData,
-          isLoading, syncStatus, dataMode, setDataMode, dataSource, isAdmin, 
-          adminKey, handleToggleAdmin, syncToCloud, showShortcutsHelp, setShowShortcutsHelp,
-          searchQuery, setSearchQuery, page, setPage, rangeFilters, setRangeFilters,
+          leads,
+          // FIX: Use setLeadsAndSync instead of raw setLeads so all status changes persist
+          setLeads: setLeadsAndSync,
+          outreachLog, setOutreachLog,
+          dailyData, setDailyData,
+          isLoading, syncStatus,
+          dataMode, setDataMode, dataSource,
+          isAdmin, adminKey, handleToggleAdmin,
+          syncToCloud,
+          showShortcutsHelp, setShowShortcutsHelp,
+          searchQuery, setSearchQuery,
+          page, setPage,
+          rangeFilters, setRangeFilters,
           activeView, setActiveView,
           onOpenCalendar: () => setIsCalendarOpen(true)
         }}
       />
 
-      <OutreachCalendar 
-        isOpen={isCalendarOpen} 
-        onClose={() => setIsCalendarOpen(false)} 
+      <OutreachCalendar
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
         outreachLog={outreachLog}
         onDeleteEntry={handleDeleteEntry}
       />
