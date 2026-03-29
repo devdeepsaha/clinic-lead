@@ -5,12 +5,14 @@ export default function CallSummaryModal({ lead, isAdmin, adminKey, onClose, onS
   const [text, setText]       = useState('');
   const [saving, setSaving]   = useState(false);
   const [status, setStatus]   = useState(null); // 'saved' | 'deleted' | 'error'
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // New state for delete confirmation
 
   // Load existing summary when modal opens
   useEffect(() => {
     if (!lead) return;
     setText('');
     setStatus(null);
+    setShowDeleteConfirm(false); // Reset confirmation on lead change
     fetch(`/api/summaries?id=${encodeURIComponent(lead.id)}`, { cache: 'no-store' })
       .then(r => r.json())
       .then(data => { if (data?.text) setText(data.text); })
@@ -94,7 +96,10 @@ export default function CallSummaryModal({ lead, isAdmin, adminKey, onClose, onS
           </label>
           <textarea
             value={text}
-            onChange={e => setText(e.target.value)}
+            onChange={e => {
+              setText(e.target.value);
+              if (showDeleteConfirm) setShowDeleteConfirm(false); // Reset delete state if user starts typing
+            }}
             disabled={!isAdmin}
             placeholder={isAdmin
               ? "What happened on the call? Key points, follow-ups, objections..."
@@ -118,29 +123,50 @@ export default function CallSummaryModal({ lead, isAdmin, adminKey, onClose, onS
         {/* Footer */}
         {isAdmin && (
           <div className="px-6 pb-5 flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
-            >
-              Cancel
-            </button>
-            {text.trim() && (
+            {/* Conditional Delete or Cancel */}
+            {!showDeleteConfirm ? (
+              <>
+                {/* Delete Trigger - Moved to left and styled subtly */}
+                {text.trim() && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-100 text-slate-400 font-bold text-sm hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all"
+                    title="Delete Summary"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              /* Confirmation State */
               <button
-                onClick={() => { setText(''); }}
-                className="px-4 py-2.5 rounded-xl border border-red-100 text-red-400 font-bold text-sm hover:bg-red-50 transition-colors"
-                title="Clear text (then Save to delete)"
+                onClick={() => { setText(''); setShowDeleteConfirm(false); }}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors flex items-center justify-center gap-2 animate-in slide-in-from-left-2"
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>warning</span>
+                Confirm Clear
               </button>
             )}
+
+            {/* Primary Save Action */}
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="flex-[2] py-2.5 rounded-xl bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-500/20 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+              disabled={saving || showDeleteConfirm}
+              className={`flex-[2] py-2.5 rounded-xl text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all
+                ${text.trim() 
+                  ? 'bg-emerald-500 shadow-emerald-500/20 hover:bg-emerald-600' 
+                  : 'bg-slate-400 shadow-slate-400/20 hover:bg-slate-500'} 
+                disabled:opacity-50`}
             >
               {saving
                 ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                : <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>save</span>
+                : <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{text.trim() ? 'save' : 'delete'}</span>
               }
               {saving ? 'Saving...' : text.trim() ? 'Save Summary' : 'Delete Summary'}
             </button>
