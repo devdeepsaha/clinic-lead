@@ -1,25 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+
+// ─── Country flag helper ───────────────────────────────────────────────────
+const COUNTRY_FLAGS = {
+  India:     '🇮🇳',
+  UAE:       '🇦🇪',
+  Australia: '🇦🇺',
+};
+
+const REGION_COLORS = {
+  Dubai:        'bg-amber-50 text-amber-700 border-amber-200',
+  Sydney:       'bg-sky-50 text-sky-700 border-sky-200',
+  NSW:          'bg-blue-50 text-blue-700 border-blue-200',
+  Bhopal:       'bg-orange-50 text-orange-700 border-orange-200',
+  Chhattisgarh: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+};
 
 export default function LeadTableControls({
   isAdmin, searchQuery, setSearchQuery, statusFilter, setStatusFilter,
   catFilter, setCatFilter, sortType, setSortType, setPage, perPage, setPerPage,
   copyMode, setCopyMode, categories, totalLeads, filteredCount,
-  rangeFilters, setRangeFilters 
+  rangeFilters, setRangeFilters,
+  // NEW PROPS
+  regionFilter, setRegionFilter,
+  countryFilter, setCountryFilter,
+  leads,
 }) {
-  const [catDropOpen, setCatDropOpen] = useState(false);
-  const [sortDropOpen, setSortDropOpen] = useState(false);
-  const [filterDropOpen, setFilterDropOpen] = useState(false); 
+  const [catDropOpen, setCatDropOpen]       = useState(false);
+  const [sortDropOpen, setSortDropOpen]     = useState(false);
+  const [filterDropOpen, setFilterDropOpen] = useState(false);
+  const [regionDropOpen, setRegionDropOpen] = useState(false);
 
   const MAX_REVIEWS_SLIDER = 5000;
+
+  // ── Derive available regions & countries from leads ───────────────────────
+  const { regions, countries } = useMemo(() => {
+    const regionCounts  = {};
+    const countryCounts = {};
+    (leads || []).forEach(l => {
+      const r = l.region  || 'Unknown';
+      const c = l.country || 'Unknown';
+      regionCounts[r]  = (regionCounts[r]  || 0) + 1;
+      countryCounts[c] = (countryCounts[c] || 0) + 1;
+    });
+    return {
+      regions:   Object.entries(regionCounts).sort((a, b) => b[1] - a[1]),
+      countries: Object.entries(countryCounts).sort((a, b) => b[1] - a[1]),
+    };
+  }, [leads]);
 
   const handleRangeChange = (key, value) => {
     let parsed = parseFloat(value);
     if (isNaN(parsed)) parsed = 0;
-    
     setRangeFilters(prev => {
       let next = { ...prev, [key]: parsed };
-      if (key === 'ratingMin' && next.ratingMin > next.ratingMax) next.ratingMax = next.ratingMin;
-      if (key === 'ratingMax' && next.ratingMax < next.ratingMin) next.ratingMin = next.ratingMax;
+      if (key === 'ratingMin'  && next.ratingMin  > next.ratingMax)  next.ratingMax  = next.ratingMin;
+      if (key === 'ratingMax'  && next.ratingMax  < next.ratingMin)  next.ratingMin  = next.ratingMax;
       if (key === 'reviewsMin' && next.reviewsMin > next.reviewsMax) next.reviewsMax = next.reviewsMin;
       if (key === 'reviewsMax' && next.reviewsMax < next.reviewsMin) next.reviewsMin = next.reviewsMax;
       return next;
@@ -28,35 +63,37 @@ export default function LeadTableControls({
   };
 
   const applyQuickFilter = (type) => {
-    if (type === 'high_rating') setRangeFilters({ ratingMin: 4.5, ratingMax: 5, reviewsMin: 0, reviewsMax: MAX_REVIEWS_SLIDER });
-    if (type === 'low_reviews') setRangeFilters({ ratingMin: 0, ratingMax: 5, reviewsMin: 0, reviewsMax: 100 });
-    if (type === 'sweet_spot') setRangeFilters({ ratingMin: 3.5, ratingMax: 4.5, reviewsMin: 50, reviewsMax: 500 });
-    if (type === 'reset') setRangeFilters({ ratingMin: 0, ratingMax: 5, reviewsMin: 0, reviewsMax: MAX_REVIEWS_SLIDER });
+    if (type === 'high_rating') setRangeFilters({ ratingMin: 4.5, ratingMax: 5,    reviewsMin: 0,  reviewsMax: MAX_REVIEWS_SLIDER });
+    if (type === 'low_reviews') setRangeFilters({ ratingMin: 0,   ratingMax: 5,    reviewsMin: 0,  reviewsMax: 100 });
+    if (type === 'sweet_spot')  setRangeFilters({ ratingMin: 3.5, ratingMax: 4.5,  reviewsMin: 50, reviewsMax: 500 });
+    if (type === 'reset')       setRangeFilters({ ratingMin: 0,   ratingMax: 5,    reviewsMin: 0,  reviewsMax: MAX_REVIEWS_SLIDER });
     setPage(1);
   };
 
-  const isFilterActive = rangeFilters.ratingMin > 0 || rangeFilters.ratingMax < 5 || rangeFilters.reviewsMin > 0 || rangeFilters.reviewsMax < MAX_REVIEWS_SLIDER;
+  const isFilterActive = rangeFilters.ratingMin > 0 || rangeFilters.ratingMax < 5
+    || rangeFilters.reviewsMin > 0 || rangeFilters.reviewsMax < MAX_REVIEWS_SLIDER;
+
+  const isRegionFilterActive = regionFilter !== 'all' || countryFilter !== 'all';
 
   return (
     <div className="px-4 md:px-6 py-3 md:py-4 bg-white md:border-b border-primary/10 sticky top-0 z-20 shadow-sm md:shadow-none">
-      
-      {/* Mobile Search Bar */}
+
+      {/* ── Mobile Search ─────────────────────────────────────────────────── */}
       <div className="md:hidden flex items-stretch rounded-xl shadow-sm h-11 mb-3 relative">
         <div className="flex items-center justify-center pl-4 bg-white rounded-l-xl border border-r-0 border-primary/15">
           <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '18px' }}>search</span>
         </div>
-        <input 
-          type="text" 
-          placeholder="Search leads (Press 'C' to clear)..." 
-          className="flex-1 bg-white border border-l-0 border-primary/15 rounded-r-xl px-3 pr-10 text-sm outline-none focus:border-primary/40 placeholder:text-slate-400" 
-          value={searchQuery} 
-          onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)} 
+        <input
+          type="text"
+          placeholder="Search leads (Press 'C' to clear)..."
+          className="flex-1 bg-white border border-l-0 border-primary/15 rounded-r-xl px-3 pr-10 text-sm outline-none focus:border-primary/40 placeholder:text-slate-400"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
         />
-        {/* RECENTLY CHANGED: Added clear (x) button to the mobile search input */}
         {searchQuery && (
-          <button 
+          <button
             type="button"
-            onClick={() => setSearchQuery('')} 
+            onClick={() => setSearchQuery('')}
             className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors"
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
@@ -64,6 +101,55 @@ export default function LeadTableControls({
         )}
       </div>
 
+      {/* ── Country/Region pill strip (always visible) ─────────────────────── */}
+      <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
+        {/* Country pills */}
+        <button
+          onClick={() => { setCountryFilter('all'); setRegionFilter('all'); setPage(1); }}
+          className={`flex-shrink-0 h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${
+            countryFilter === 'all' && regionFilter === 'all'
+              ? 'bg-slate-800 text-white border-slate-800'
+              : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+          }`}
+        >
+          🌍 All Regions
+        </button>
+
+        {countries.map(([country, count]) => (
+          <button
+            key={country}
+            onClick={() => { setCountryFilter(country); setRegionFilter('all'); setPage(1); }}
+            className={`flex-shrink-0 h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${
+              countryFilter === country && regionFilter === 'all'
+                ? 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+            }`}
+          >
+            {COUNTRY_FLAGS[country] || '🌐'} {country}
+            <span className="ml-1 opacity-60">{count}</span>
+          </button>
+        ))}
+
+        <div className="w-px h-5 bg-slate-200 flex-shrink-0" />
+
+        {/* Region pills */}
+        {regions.map(([region, count]) => (
+          <button
+            key={region}
+            onClick={() => { setRegionFilter(region); setCountryFilter('all'); setPage(1); }}
+            className={`flex-shrink-0 h-7 px-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all ${
+              regionFilter === region
+                ? `${REGION_COLORS[region] || 'bg-primary/10 text-primary border-primary/20'} shadow-sm`
+                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            {region}
+            <span className="ml-1 opacity-60">{count}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Main controls row ────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="hidden md:block">
           <div className="flex items-center gap-3">
@@ -75,26 +161,34 @@ export default function LeadTableControls({
               <button className={`px-3 py-1 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all ${copyMode === 'whatsapp' ? 'bg-[#25D366] shadow text-white' : 'text-slate-400 hover:text-slate-600'}`} onClick={() => setCopyMode('whatsapp')}>WhatsApp</button>
             </div>
           </div>
-          {/* RECENTLY CHANGED: Updated the subtitle description to match the new tags */}
-          <p className="text-xs text-slate-500 mt-0.5">{filteredCount} results · tag each as Message, Call, Skip, Dismissed, or Replied.</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {filteredCount} results
+            {isRegionFilterActive && (
+              <span className="ml-1 text-primary font-semibold">
+                · {regionFilter !== 'all' ? regionFilter : countryFilter}
+              </span>
+            )}
+            · tag each as Message, Call, Skip, Dismissed, or Replied.
+          </p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
-          
+
+          {/* Mobile copy mode toggle */}
           <div className="md:hidden flex bg-slate-100 rounded-lg p-1 mb-1">
             <button className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${copyMode === 'email' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400'}`} onClick={() => setCopyMode('email')}>Email</button>
             <button className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1 ${copyMode === 'whatsapp' ? 'bg-[#25D366] shadow-sm text-white' : 'text-slate-400'}`} onClick={() => setCopyMode('whatsapp')}>WhatsApp</button>
           </div>
 
+          {/* Status filter tabs */}
           <div className="flex overflow-x-auto no-scrollbar gap-2 md:gap-0 md:border md:border-primary/15 md:rounded-lg">
-            {/* RECENTLY CHANGED: Replaced old tags with all, message, call, skip, dismissed, replied and simplified label logic */}
             {['all', 'message', 'call', 'skip', 'dismissed', 'replied'].map((s) => (
               <button
                 key={s}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
                 className={`flex-shrink-0 h-8 md:h-auto px-4 md:px-3 md:py-1.5 text-xs font-bold transition-all rounded-full md:rounded-none md:border-r md:last:border-r-0 border-primary/15 ${
-                  statusFilter === s 
-                    ? 'bg-primary text-white border-transparent md:border-primary/15' 
+                  statusFilter === s
+                    ? 'bg-primary text-white border-transparent md:border-primary/15'
                     : 'text-slate-500 bg-white border border-primary/15 md:border-transparent hover:bg-primary/5'
                 }`}
               >
@@ -104,9 +198,13 @@ export default function LeadTableControls({
           </div>
 
           <div className="flex gap-2">
-            
+
+            {/* Advanced Filters */}
             <div className="relative flex-1 md:flex-none">
-              <button onClick={() => { setFilterDropOpen(!filterDropOpen); setCatDropOpen(false); setSortDropOpen(false); }} className={`w-full flex items-center justify-between md:justify-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-semibold transition-all ${isFilterActive ? 'border-primary bg-primary/10 text-primary' : 'border-primary/15 bg-white hover:border-primary/40'}`}>
+              <button
+                onClick={() => { setFilterDropOpen(!filterDropOpen); setCatDropOpen(false); setSortDropOpen(false); setRegionDropOpen(false); }}
+                className={`w-full flex items-center justify-between md:justify-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-semibold transition-all ${isFilterActive ? 'border-primary bg-primary/10 text-primary' : 'border-primary/15 bg-white hover:border-primary/40'}`}
+              >
                 <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>tune</span>
                 <span className="hidden md:inline">Filters</span>
                 {isFilterActive && <span className="w-1.5 h-1.5 rounded-full bg-primary absolute top-1 right-1 animate-pulse"></span>}
@@ -114,7 +212,6 @@ export default function LeadTableControls({
 
               {filterDropOpen && (
                 <div className="absolute top-full left-0 mt-1 z-50 w-[280px] max-w-[85vw] bg-white border border-primary/15 rounded-xl shadow-xl p-4 cursor-default">
-                  
                   <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
                     <h4 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-primary" style={{ fontSize: '16px' }}>tune</span>
@@ -174,8 +271,9 @@ export default function LeadTableControls({
               )}
             </div>
 
+            {/* Category */}
             <div className="relative flex-1 md:flex-none">
-              <button onClick={() => { setCatDropOpen(!catDropOpen); setSortDropOpen(false); setFilterDropOpen(false); }} className="w-full flex items-center justify-between md:justify-center gap-1.5 h-8 px-3 rounded-lg border border-primary/15 bg-white text-xs font-semibold hover:border-primary/40 transition-all">
+              <button onClick={() => { setCatDropOpen(!catDropOpen); setSortDropOpen(false); setFilterDropOpen(false); setRegionDropOpen(false); }} className="w-full flex items-center justify-between md:justify-center gap-1.5 h-8 px-3 rounded-lg border border-primary/15 bg-white text-xs font-semibold hover:border-primary/40 transition-all">
                 <span className="material-symbols-outlined text-primary md:hidden" style={{ fontSize: '15px' }}>category</span>
                 <span>{catFilter === 'all' ? 'Category' : (catFilter.length > 8 ? catFilter.slice(0,8)+'...' : catFilter)}</span>
                 <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '15px' }}>expand_more</span>
@@ -194,15 +292,22 @@ export default function LeadTableControls({
               )}
             </div>
 
+            {/* Sort */}
             <div className="relative flex-1 md:flex-none">
-              <button onClick={() => { setSortDropOpen(!sortDropOpen); setCatDropOpen(false); setFilterDropOpen(false); }} className="w-full flex items-center justify-between md:justify-center gap-1.5 h-8 px-3 rounded-lg border border-primary/15 bg-white text-xs font-semibold hover:border-primary/40 transition-all">
+              <button onClick={() => { setSortDropOpen(!sortDropOpen); setCatDropOpen(false); setFilterDropOpen(false); setRegionDropOpen(false); }} className="w-full flex items-center justify-between md:justify-center gap-1.5 h-8 px-3 rounded-lg border border-primary/15 bg-white text-xs font-semibold hover:border-primary/40 transition-all">
                 <span className="hidden md:inline material-symbols-outlined text-slate-400" style={{ fontSize: '15px' }}>sort</span>
                 <span>Sort: {sortType === 'default' ? 'Default' : sortType.split('_')[0].toUpperCase()}</span>
                 <span className="material-symbols-outlined text-slate-400" style={{ fontSize: '15px' }}>expand_more</span>
               </button>
               {sortDropOpen && (
                 <div className="absolute top-full right-0 mt-1 z-50 w-48 bg-white border border-primary/15 rounded-xl shadow-lg flex flex-col p-1 text-sm">
-                  {[{ id: 'default', label: 'Default Order' }, { id: 'name_asc', label: 'Name A → Z' }, { id: 'rating_desc', label: 'Highest Rated' }, { id: 'reviews_desc', label: 'Most Reviews' }, { id: 'cat_name', label: 'Category → Name' }].map(opt => (
+                  {[
+                    { id: 'default', label: 'Default Order' },
+                    { id: 'name_asc', label: 'Name A → Z' },
+                    { id: 'rating_desc', label: 'Highest Rated' },
+                    { id: 'reviews_desc', label: 'Most Reviews' },
+                    { id: 'cat_name', label: 'Category → Name' },
+                  ].map(opt => (
                     <button key={opt.id} onClick={() => { setSortType(opt.id); setSortDropOpen(false); setPage(1); }} className={`text-left px-3 py-2 rounded-lg ${sortType === opt.id ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-primary/5'}`}>{opt.label}</button>
                   ))}
                 </div>

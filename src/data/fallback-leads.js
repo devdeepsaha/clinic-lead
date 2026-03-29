@@ -1,4 +1,15 @@
-const FALLBACK_LEADS = [
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fallback-leads.js  —  MERGED DATABASE
+// Contains your original leads + 5 new CSV regions (2077 new leads)
+// Regions: Dubai (UAE) · Sydney (AUS) · NSW (AUS) · Bhopal (India) · Chhattisgarh (India)
+// ─────────────────────────────────────────────────────────────────────────────
+import NEW_CSV_LEADS from './new-csv-leads';
+
+// ─── YOUR EXISTING LEADS GO HERE (UNTOUCHED) ─────────────────────────────────
+// Replace the empty array below with your current FALLBACK_LEADS array content
+const EXISTING_LEADS = [
   {
     "id": "0x3be7c7d49df9d23f:0x6d7b2d9f51a9a2a4",
     "name": "Dr. Priti Muramkar Madhavbaug Ghatkopar clinic",
@@ -31072,5 +31083,12 @@ const FALLBACK_LEADS = [
     "checked": false
   }
 ];
+
+// ─── MERGE: existing leads first, then new CSV leads ─────────────────────────
+// Deduplication is by id — existing leads always win if id clashes
+const existingIds = new Set(EXISTING_LEADS.map(l => String(l.id)));
+const deduped = NEW_CSV_LEADS.filter(l => !existingIds.has(String(l.id)));
+
+const FALLBACK_LEADS = [...EXISTING_LEADS, ...deduped];
 
 export default FALLBACK_LEADS;
