@@ -142,6 +142,7 @@ export default function LeadDashboard(props) {
 
           {activeView === 'leads' && ( 
             <LeadTable 
+              adminKey={adminKey}
               leads={leads} 
               isAdmin={isAdmin} 
               setLeads={handleUpdateLeads} 

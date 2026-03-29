@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+// src/components/lead-dashboard/LeadTable.jsx
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LeadTableControls from './LeadTableControls';
 import LeadTableDesktop from './LeadTableDesktop';
 import LeadTableMobile from './LeadTableMobile';
@@ -13,7 +14,7 @@ const getLocalDateString = (d = new Date()) => {
 };
 
 export default function LeadTable({
-  leads = [], isAdmin = false, setLeads,
+  leads = [], isAdmin = false, adminKey = '', setLeads,
   dailyData, setDailyData, outreachLog = [], setOutreachLog,
   searchQuery, setSearchQuery,
   statusFilter, setStatusFilter,
@@ -25,67 +26,57 @@ export default function LeadTable({
   rangeFilters, setRangeFilters,
   onLocate,
 }) {
-  const [toastMsg, setToastMsg]           = useState(null);
-  // ── NEW: region / country filter state ──────────────────────────────────
-  const [regionFilter, setRegionFilter]   = useState('all');
+  const [toastMsg,      setToastMsg]      = useState(null);
+  const [regionFilter,  setRegionFilter]  = useState('all');
   const [countryFilter, setCountryFilter] = useState('all');
+
+  // Summaries cache: { [leadId]: { text, ts, leadName } }
+  const [summaries, setSummaries] = useState({});
+
+  useEffect(() => {
+    fetch('/api/summaries', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => { if (data && typeof data === 'object') setSummaries(data); })
+      .catch(() => {});
+  }, []);
+
+  const handleSummaryUpdate = useCallback((leadId, text) => {
+    setSummaries(prev => {
+      const next = { ...prev };
+      if (text.trim()) { next[leadId] = { ...next[leadId], text: text.trim() }; }
+      else { delete next[leadId]; }
+      return next;
+    });
+  }, []);
 
   const MAX_REVIEWS_SLIDER = 5000;
 
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2500);
-  };
+  const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 2500); };
 
   const categories = useMemo(() => {
     const counts = {};
-    leads.forEach((l) => { counts[l.category] = (counts[l.category] || 0) + 1; });
+    leads.forEach(l => { counts[l.category] = (counts[l.category] || 0) + 1; });
     return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0]));
   }, [leads]);
 
   const filteredLeads = useMemo(() => {
-    let arr = leads.filter((l) => {
-      // ── Status filter ──
-      if (statusFilter === 'replied') {
-        if (!l.replied) return false;
-      } else if (statusFilter !== 'all' && l.status !== statusFilter) {
-        return false;
-      }
-
-      // ── Category filter ──
+    let arr = leads.filter(l => {
+      if (statusFilter === 'replied') { if (!l.replied) return false; }
+      else if (statusFilter !== 'all' && l.status !== statusFilter) return false;
       if (catFilter !== 'all' && l.category !== catFilter) return false;
-
-      // ── Range filters ──
-      const r   = l.rating  || 0;
-      const rev = l.reviews || 0;
-      if (r   < rangeFilters.ratingMin  || r   > rangeFilters.ratingMax)  return false;
+      const r = l.rating || 0, rev = l.reviews || 0;
+      if (r < rangeFilters.ratingMin || r > rangeFilters.ratingMax) return false;
       if (rev < rangeFilters.reviewsMin) return false;
       if (rangeFilters.reviewsMax < MAX_REVIEWS_SLIDER && rev > rangeFilters.reviewsMax) return false;
-
-      // ── Country filter (higher priority than region) ──
-      if (countryFilter !== 'all') {
-        if ((l.country || 'Unknown') !== countryFilter) return false;
-      }
-
-      // ── Region filter ──
-      if (regionFilter !== 'all') {
-        if ((l.region || 'Unknown') !== regionFilter) return false;
-      }
-
-      // ── Search query ──
+      if (countryFilter !== 'all' && (l.country || 'Unknown') !== countryFilter) return false;
+      if (regionFilter  !== 'all' && (l.region  || 'Unknown') !== regionFilter)  return false;
       if (searchQuery) {
         const q = String(searchQuery).toLowerCase();
-        const n = String(l.name     || '').toLowerCase();
-        const p = String(l.phone    || '').toLowerCase();
-        const e = String(l.email    || '').toLowerCase();
-        const c = String(l.category || '').toLowerCase();
-        const r = String(l.region   || '').toLowerCase();
-        const a = String(l.address  || '').toLowerCase();
-        if (!n.includes(q) && !p.includes(q) && !e.includes(q) && !c.includes(q) && !r.includes(q) && !a.includes(q)) return false;
+        const fields = [l.name, l.phone, l.email, l.category, l.region, l.address].map(v => String(v || '').toLowerCase());
+        if (!fields.some(f => f.includes(q))) return false;
       }
       return true;
     });
-
     switch (sortType) {
       case 'name_asc':    arr.sort((a, b) => a.name.localeCompare(b.name)); break;
       case 'name_desc':   arr.sort((a, b) => b.name.localeCompare(a.name)); break;
@@ -106,55 +97,45 @@ export default function LeadTable({
   const paginatedLeads = filteredLeads.slice((safePage - 1) * perPage, safePage * perPage);
 
   const updateLead = (id, updates) => {
-    if (!isAdmin && (updates.status || updates.replied !== undefined)) {
-      return showToast('Unlock Admin Mode to modify leads.');
-    }
-    const newLeads = leads.map(l => l.id === id ? { ...l, ...updates } : l);
-    setLeads(newLeads);
+    if (!isAdmin && (updates.status || updates.replied !== undefined)) return showToast('Unlock Admin Mode to modify leads.');
+    setLeads(leads.map(l => l.id === id ? { ...l, ...updates } : l));
   };
 
   const handleStatusClick = (id, newStatus) => {
     if (!isAdmin) return showToast('Unlock Admin Mode to tag leads.');
-    const lead      = leads.find(l => l.id === id);
-    const finalStatus = lead.status === newStatus ? 'none' : newStatus;
-    updateLead(id, { status: finalStatus });
+    const lead = leads.find(l => l.id === id);
+    updateLead(id, { status: lead.status === newStatus ? 'none' : newStatus });
   };
 
   const logOutreachInternal = (lead) => {
     if (!isAdmin) return;
-    const actualTplKey = lead.status;
-    const newEntry = { id: lead.id, name: lead.name, category: lead.category || '', tplKey: actualTplKey, ts: Date.now() };
+    const newEntry = { id: lead.id, name: lead.name, category: lead.category || '', tplKey: lead.status, ts: Date.now() };
     setOutreachLog([newEntry, ...outreachLog]);
     const today = getLocalDateString();
     let newCounts = dailyData.date === today ? { ...dailyData.counts } : { message: 0, call: 0, skip: 0, dismissed: 0 };
-    if (newCounts[actualTplKey] !== undefined) newCounts[actualTplKey]++;
+    if (newCounts[lead.status] !== undefined) newCounts[lead.status]++;
     setDailyData({ ...dailyData, date: today, counts: newCounts });
   };
 
   const handleCopyTemplate = async (lead) => {
     const tpl = TEMPLATES[copyMode][lead.status];
     if (!tpl) return showToast('Tag lead as Message to copy template');
-    try {
-      const finalMsg = tpl.build(lead.name);
-      await navigator.clipboard.writeText(finalMsg);
-      logOutreachInternal(lead);
-      showToast('Template Copied!');
-    } catch (err) {
-      console.error('Copy Error:', err);
-      showToast('Failed to copy to clipboard');
-    }
+    try { await navigator.clipboard.writeText(tpl.build(lead.name)); logOutreachInternal(lead); showToast('Template Copied!'); }
+    catch { showToast('Failed to copy to clipboard'); }
   };
 
-  const handleEmailCopy = (email) => {
-    navigator.clipboard.writeText(email).then(() => showToast('Copied ' + email));
-  };
-
+  const handleEmailCopy = (email) => { navigator.clipboard.writeText(email).then(() => showToast('Copied ' + email)); };
   const handlePhoneCopy = (phone) => {
     if (!phone) return;
-    const cleanPhone = phone.toString().replace(/\D/g, '').slice(-10);
-    navigator.clipboard.writeText(cleanPhone).then(() => {
-      showToast('Copied 10-digit phone: ' + cleanPhone);
-    });
+    const clean = phone.toString().replace(/\D/g, '').slice(-10);
+    navigator.clipboard.writeText(clean).then(() => showToast('Copied: ' + clean));
+  };
+
+  const sharedTableProps = {
+    leads, setLeads, isAdmin, adminKey,
+    copyMode, handleStatusClick, handleCopyTemplate,
+    handleEmailCopy, handlePhoneCopy, updateLead, onLocate,
+    summaries, onSummaryUpdate: handleSummaryUpdate,
   };
 
   return (
@@ -164,38 +145,14 @@ export default function LeadTable({
           {toastMsg}
         </div>
       )}
-
       <LeadTableControls
-        {...{
-          isAdmin, searchQuery, setSearchQuery,
-          statusFilter, setStatusFilter,
-          catFilter, setCatFilter,
-          sortType, setSortType,
-          rangeFilters, setRangeFilters,
-          setPage, perPage, setPerPage,
-          copyMode, setCopyMode,
-          categories,
-          // NEW props
-          regionFilter,  setRegionFilter,
-          countryFilter, setCountryFilter,
-          leads,
-        }}
+        {...{ isAdmin, searchQuery, setSearchQuery, statusFilter, setStatusFilter, catFilter, setCatFilter, sortType, setSortType, rangeFilters, setRangeFilters, setPage, perPage, setPerPage, copyMode, setCopyMode, categories, regionFilter, setRegionFilter, countryFilter, setCountryFilter, leads }}
         totalLeads={leads.length}
         filteredCount={filteredLeads.length}
       />
-
-      <LeadTableDesktop
-        {...{ leads, setLeads, paginatedLeads, isAdmin, copyMode, handleStatusClick, handleCopyTemplate, handleEmailCopy, handlePhoneCopy, updateLead, onLocate }}
-      />
-
-      <LeadTableMobile
-        {...{ paginatedLeads, isAdmin, copyMode, handleStatusClick, handleCopyTemplate, handleEmailCopy, handlePhoneCopy, updateLead, onLocate }}
-      />
-
-      <LeadTablePagination
-        safePage={safePage} totalPages={totalPages} setPage={setPage}
-        filteredCount={filteredLeads.length} perPage={perPage}
-      />
+      <LeadTableDesktop {...sharedTableProps} paginatedLeads={paginatedLeads} />
+      <LeadTableMobile  {...sharedTableProps} paginatedLeads={paginatedLeads} />
+      <LeadTablePagination safePage={safePage} totalPages={totalPages} setPage={setPage} filteredCount={filteredLeads.length} perPage={perPage} />
     </div>
   );
 }
